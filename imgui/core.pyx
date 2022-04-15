@@ -3385,6 +3385,19 @@ def show_font_selector(str label):
 
 
 cdef class _BeginEnd(object):
+    """
+    Return value of :func:`begin` exposing ``expanded`` and ``opened`` boolean attributes.
+    See :func:`begin` for an explanation of these attributes and examples.
+
+    For legacy support, the attributes can also be accessed by unpacking or indexing into this object.
+
+    Can be used as a context manager (in a ``with`` statement) to automatically call :func:`end` to end the window
+    created with :func:`begin` when the block ends, even if an exception is raised.
+
+    This class is not intended to be instantiated by the user (thus the `_` name prefix).
+    It should be obtained as the return value of the :func:`begin` function.
+    """
+
     cdef readonly bool expanded
     cdef readonly bool opened
 
@@ -3399,9 +3412,11 @@ cdef class _BeginEnd(object):
         cimgui.End()
 
     def __getitem__(self, item):
+        """For legacy support, returns ``(expanded, opened)[item]``."""
         return (self.expanded, self.opened)[item]
 
     def __iter__(self):
+        """For legacy support, returns ``iter((expanded, opened))``."""
         return iter((self.expanded, self.opened))
 
     def __repr__(self):
@@ -3421,6 +3436,10 @@ def begin(str label, closable=False, cimgui.ImGuiWindowFlags flags=0):
     .. visual-example::
         :auto_layout:
 
+        with imgui.begin("Example: empty window"):
+            pass
+
+    Example::
         imgui.begin("Example: empty window")
         imgui.end()
 
@@ -3431,10 +3450,11 @@ def begin(str label, closable=False, cimgui.ImGuiWindowFlags flags=0):
             :ref:`list of available flags <window-flag-options>`.
 
     Returns:
-        tuple: ``(expanded, opened)`` tuple of bools. If window is collapsed
+        _BeginEnd: ``(expanded, opened)`` struct of bools. If window is collapsed
         ``expanded==True``. The value of ``opened`` is always True for
         non-closable and open windows but changes state to False on close
-        button click for closable windows.
+        button click for closable windows. Use with ``with`` to automatically call
+        :func:`end` when the block ends.
 
     .. wraps::
         Begin(
@@ -3480,6 +3500,18 @@ def end():
 
 
 cdef class _BeginEndChild(object):
+    """
+    Return value of :func:`begin_child` exposing ``visible`` boolean attribute.
+    See :func:`begin_child` for an explanation and examples.
+
+    Can be used as a context manager (in a ``with`` statement) to automatically
+    call :func:`end_child` to end the child created with :func:`begin_child`
+    when the block ends, even if an exception is raised.
+
+    This class is not intended to be instantiated by the user (thus the `_` name prefix).
+    It should be obtained as the return value of the :func:`begin_child` function.
+    """
+
     cdef readonly bool visible
 
     def __cinit__(self, bool visible):
@@ -3492,6 +3524,7 @@ cdef class _BeginEndChild(object):
         cimgui.EndChild()
 
     def __bool__(self):
+        """For legacy support, returns ``visible``."""
         return self.visible
 
     def __repr__(self):
@@ -3526,6 +3559,12 @@ def begin_child(
         :height: 200
         :auto_layout:
 
+        with imgui.begin("Example: child region"):
+            with imgui.begin_child("region", 150, -50, border=True):
+                imgui.text("inside region")
+            imgui.text("outside region")
+
+    Example::
         imgui.begin("Example: child region")
 
         imgui.begin_child("region", 150, -50, border=True)
@@ -3544,7 +3583,8 @@ def begin_child(
             :ref:`list of available flags <window-flag-options>`.
 
     Returns:
-        bool: True if region is visible
+        _BeginEndChild: Struct with ``visible`` bool attribute. Use with ``with``
+        to automatically call :func:`end_child` when the block ends.`
 
     .. wraps::
         bool BeginChild(
@@ -3571,6 +3611,7 @@ def begin_child(
     )
 def end_child():
     """End scrolling region.
+    Only call if ``begin_child().visible`` is True.
 
     .. wraps::
         void EndChild()
@@ -4566,6 +4607,18 @@ def listbox(
 
 
 cdef class _BeginEndListBox(object):
+    """
+    Return value of :func:`begin_list_box` exposing ``opened`` boolean attribute.
+    See :func:`begin_list_box` for an explanation and examples.
+
+    Can be used as a context manager (in a ``with`` statement) to automatically call :func:`end_list_box`
+    (if necessary) to end the list box created with :func:`begin_list_box` when the block ends,
+    even if an exception is raised.
+
+    This class is not intended to be instantiated by the user (thus the `_` name prefix).
+    It should be obtained as the return value of the :func:`begin_list_box` function.
+    """
+
     cdef readonly bool opened
 
     def __cinit__(self, bool opened):
@@ -4579,6 +4632,7 @@ cdef class _BeginEndListBox(object):
             cimgui.EndListBox()
 
     def __bool__(self):
+        """For legacy support, returns ``opened``."""
         return self.opened
 
     def __repr__(self):
@@ -4599,8 +4653,9 @@ def begin_list_box(
 ):
     """Open a framed scrolling region.
 
-    For use if you want to reimplement :func:`listbox()` with custom data
-    or interactions. You need to call :func:`end_list_box()` at the end.
+    For use if you want to reimplement :func:`listbox` with custom data
+    or interactions. You need to call :func:`end_list_box` at the end
+    if ``opened`` is True, or use ``with`` to do so automatically.
 
     .. visual-example::
         :auto_layout:
@@ -4608,9 +4663,16 @@ def begin_list_box(
         :width: 200
         :click: 80 40
 
+        with imgui.begin("Example: custom listbox"):
+            with imgui.begin_list_box("List", 200, 100) as list_box:
+                if list_box.opened:
+                    imgui.selectable("Selected", True)
+                    imgui.selectable("Not Selected", False)
+
+    Example::
         imgui.begin("Example: custom listbox")
 
-        if imgui.begin_list_box("List", 200, 100):
+        if imgui.begin_list_box("List", 200, 100).opened:
 
             imgui.selectable("Selected", True)
             imgui.selectable("Not Selected", False)
@@ -4625,7 +4687,9 @@ def begin_list_box(
         height (float): Button height. h > 0.0f: custom; h < 0.0f or -FLT_MIN: bottom-align; h = 0.0f (default): arbitrary default height which can fit ~7 items
 
     Returns:
-        opened (bool): If the item is opened or closed.
+        _BeginEndListBox: Use ``opened`` bool attribute to tell if the item is opened or closed.
+        Only call :func:`end_list_box` if ``opened`` is True.
+        Use with ``with`` to automatically call :func:`end_list_box` if necessary when the block ends.
 
     .. wraps::
         bool BeginListBox(
@@ -4672,6 +4736,7 @@ def end_list_box():
     """
 
     Closing the listbox, previously opened by :func:`begin_list_box()`.
+    Only call if ``begin_list_box().opened`` is True.
 
     See :func:`begin_list_box()` for usage example.
 
@@ -4719,6 +4784,18 @@ def set_tooltip(str text):
 
 
 cdef class _BeginEndTooltip(object):
+    """
+    Return value of :func:`begin_tooltip`.
+    See :func:`begin_tooltip` for an explanation and examples.
+
+    Can be used as a context manager (in a ``with`` statement) to automatically call :func:`end_tooltip`
+    to end the tooltip created with :func:`begin_tooltip` when the block ends,
+    even if an exception is raised.
+
+    This class is not intended to be instantiated by the user (thus the `_` name prefix).
+    It should be obtained as the return value of the :func:`begin_tooltip` function.
+    """
+
     def __enter__(self):
         return self
 
@@ -4738,6 +4815,16 @@ def begin_tooltip():
         :height: 200
         :click: 80 40
 
+        with imgui.begin("Example: tooltip"):
+            imgui.button("Click me!")
+            if imgui.is_item_hovered():
+                with imgui.begin_tooltip():
+                    imgui.text("This button is clickable.")
+                    imgui.text("This button has full window tooltip.")
+                    texture_id = imgui.get_io().fonts.texture_id
+                    imgui.image(texture_id, 512, 64, border_color=(1, 0, 0, 1))
+
+    Example::
         imgui.begin("Example: tooltip")
         imgui.button("Click me!")
         if imgui.is_item_hovered():
@@ -4748,6 +4835,9 @@ def begin_tooltip():
             imgui.image(texture_id, 512, 64, border_color=(1, 0, 0, 1))
             imgui.end_tooltip()
         imgui.end()
+
+    Returns:
+        _BeginEndTooltip: Use with ``with`` to automatically call :func:`end_tooltip` when the block ends.
 
     .. wraps::
         void BeginTooltip()
@@ -4768,6 +4858,18 @@ def end_tooltip():
 
 
 cdef class _BeginEndMainMenuBar(object):
+    """
+    Return value of :func:`begin_main_menu_bar` exposing ``opened`` (displayed) boolean attribute.
+    See :func:`begin_main_menu_bar` for an explanation and examples.
+
+    Can be used as a context manager (in a ``with`` statement) to automatically call :func:`end_main_menu_bar`
+    (if necessary) to end the main menu bar created with :func:`begin_main_menu_bar` when the block ends,
+    even if an exception is raised.
+
+    This class is not intended to be instantiated by the user (thus the `_` name prefix).
+    It should be obtained as the return value of the :func:`begin_main_menu_bar` function.
+    """
+
     cdef readonly bool opened
 
     def __cinit__(self, bool opened):
@@ -4781,6 +4883,7 @@ cdef class _BeginEndMainMenuBar(object):
             cimgui.EndMainMenuBar()
 
     def __bool__(self):
+        """For legacy support, returns ``opened``."""
         return self.opened
 
     def __repr__(self):
@@ -4797,7 +4900,8 @@ cdef class _BeginEndMainMenuBar(object):
 def begin_main_menu_bar():
     """Create new full-screen menu bar.
 
-     Only call :func:`end_main_menu_bar` if this function returns ``True``!
+    Use with ``with`` to automatically call :func:`end_main_menu_bar` if necessary.
+    Otherwise, only call :func:`end_main_menu_bar` if ``opened`` is True.
 
     .. visual-example::
         :auto_layout:
@@ -4805,14 +4909,29 @@ def begin_main_menu_bar():
         :width: 200
         :click: 10 10
 
-        if imgui.begin_main_menu_bar():
+        with imgui.begin_main_menu_bar() as main_menu_bar:
+            if main_menu_bar.opened:
+                # first menu dropdown
+                with imgui.begin_menu('File', True) as file_menu:
+                    if file_menu.opened:
+                        imgui.menu_item('New', 'Ctrl+N', False, True)
+                        imgui.menu_item('Open ...', 'Ctrl+O', False, True)
+
+                        # submenu
+                        with imgui.begin_menu('Open Recent', True) as open_recent_menu:
+                            if open_recent_menu.opened:
+                                imgui.menu_item('doc.txt', None, False, True)
+
+    Example::
+
+        if imgui.begin_main_menu_bar().opened:
             # first menu dropdown
-            if imgui.begin_menu('File', True):
+            if imgui.begin_menu('File', True).opened:
                 imgui.menu_item('New', 'Ctrl+N', False, True)
                 imgui.menu_item('Open ...', 'Ctrl+O', False, True)
 
                 # submenu
-                if imgui.begin_menu('Open Recent', True):
+                if imgui.begin_menu('Open Recent', True).opened:
                     imgui.menu_item('doc.txt', None, False, True)
                     imgui.end_menu()
 
@@ -4821,7 +4940,9 @@ def begin_main_menu_bar():
             imgui.end_main_menu_bar()
 
     Returns:
-        bool: True if main menu bar is displayed (opened).
+        _BeginEndMainMenuBar: Use ``opened`` to tell if main menu bar is displayed (opened).
+        Only call :func:`end_main_menu_bar` if ``opened`` is True.
+        Use with ``with`` to automatically call :func:`end_main_menu_bar` if necessary when the block ends.
 
     .. wraps::
         bool BeginMainMenuBar()
@@ -4835,7 +4956,7 @@ def begin_main_menu_bar():
 def end_main_menu_bar():
     """Close main menu bar context.
 
-    Only call this function if the :func:`end_main_menu_bar` returns ``True``.
+    Only call this function if the ``end_main_menu_bar().opened`` is True.
 
     For practical example how to use this function see documentation of
     :func:`begin_main_menu_bar`.
@@ -4847,6 +4968,18 @@ def end_main_menu_bar():
 
 
 cdef class _BeginEndMenuBar(object):
+    """
+    Return value of :func:`begin_menu_bar` exposing ``opened`` (displayed) boolean attribute.
+    See :func:`begin_menu_bar` for an explanation and examples.
+
+    Can be used as a context manager (in a ``with`` statement) to automatically call :func:`end_menu_bar`
+    (if necessary) to end the menu bar created with :func:`begin_menu_bar` when the block ends,
+    even if an exception is raised.
+
+    This class is not intended to be instantiated by the user (thus the `_` name prefix).
+    It should be obtained as the return value of the :func:`begin_menu_bar` function.
+    """
+
     cdef readonly bool opened
 
     def __cinit__(self, bool opened):
@@ -4860,6 +4993,7 @@ cdef class _BeginEndMenuBar(object):
             cimgui.EndMenuBar()
 
     def __bool__(self):
+        """For legacy support, returns ``opened``."""
         return self.opened
 
     def __repr__(self):
@@ -4877,8 +5011,9 @@ def begin_menu_bar():
     """Append new menu menu bar to current window.
 
     This function is different from :func:`begin_main_menu_bar`, as this is
-    child-window specific. Only call :func:`end_menu_bar` if this returns
-    ``True``!
+    child-window specific. Use with ``with`` to automatically call
+    :func:`end_menu_bar` if necessary.
+    Otherwise, only call :func:`end_menu_bar` if ``opened`` is True.
 
     **Note:** this requires :ref:`WINDOW_MENU_BAR <window-flag-options>` flag
     to be set for the current window. Without this flag set the
@@ -4890,10 +5025,21 @@ def begin_menu_bar():
 
         flags = imgui.WINDOW_MENU_BAR
 
+        with imgui.begin("Child Window - File Browser", flags=flags):
+            with imgui.begin_menu_bar() as menu_bar:
+                if menu_bar.opened:
+                    with imgui.begin_menu('File') as file_menu:
+                        if file_menu.opened:
+                            imgui.menu_item('Close')
+
+    Example::
+
+        flags = imgui.WINDOW_MENU_BAR
+
         imgui.begin("Child Window - File Browser", flags=flags)
 
-        if imgui.begin_menu_bar():
-            if imgui.begin_menu('File'):
+        if imgui.begin_menu_bar().opened:
+            if imgui.begin_menu('File').opened:
                 imgui.menu_item('Close')
                 imgui.end_menu()
 
@@ -4902,7 +5048,9 @@ def begin_menu_bar():
         imgui.end()
 
     Returns:
-        bool: True if menu bar is displayed (opened).
+        _BeginEndMenuBar: Use ``opened`` to tell if menu bar is displayed (opened).
+        Only call :func:`end_menu_bar` if ``opened`` is True.
+        Use with ``with`` to automatically call :func:`end_menu_bar` if necessary when the block ends.
 
     .. wraps::
         bool BeginMenuBar()
@@ -4916,7 +5064,7 @@ def begin_menu_bar():
 def end_menu_bar():
     """Close menu bar context.
 
-    Only call this function if the :func:`begin_menu_bar` returns true.
+    Only call this function if ``begin_menu_bar().opened`` is True.
 
     For practical example how to use this function see documentation of
     :func:`begin_menu_bar`.
@@ -4928,6 +5076,18 @@ def end_menu_bar():
 
 
 cdef class _BeginEndMenu(object):
+    """
+    Return value of :func:`begin_menu` exposing ``opened`` boolean attribute.
+    See :func:`begin_menu` for an explanation and examples.
+
+    Can be used as a context manager (in a ``with`` statement) to automatically call :func:`end_menu`
+    (if necessary) to end the menu created with :func:`begin_menu` when the block ends,
+    even if an exception is raised.
+
+    This class is not intended to be instantiated by the user (thus the `_` name prefix).
+    It should be obtained as the return value of the :func:`begin_menu` function.
+    """
+
     cdef readonly bool opened
 
     def __cinit__(self, bool opened):
@@ -4941,6 +5101,7 @@ cdef class _BeginEndMenu(object):
             cimgui.EndMenu()
 
     def __bool__(self):
+        """For legacy support, returns ``opened``."""
         return self.opened
 
     def __repr__(self):
@@ -4957,7 +5118,8 @@ cdef class _BeginEndMenu(object):
 def begin_menu(str label, enabled=True):
     """Create new expandable menu in current menu bar.
 
-    Only call :func:`end_menu` if this returns ``True``!
+    Use with ``with`` to automatically call :func:`end_menu` if necessary.
+    Otherwise, only call :func:`end_menu` if ``opened`` is True.
 
     For practical example how to use this function, please see documentation
     of :func:`begin_main_menu_bar` or :func:`begin_menu_bar`.
@@ -4967,7 +5129,9 @@ def begin_menu(str label, enabled=True):
         enabled (bool): define if menu is enabled or disabled.
 
     Returns:
-        bool: True if the menu is displayed (opened).
+        _BeginEndMenu: Use ``opened`` to tell if the menu is displayed (opened).
+        Only call :func:`end_menu` if ``opened`` is True.
+        Use with ``with`` to automatically call :func:`end_menu` if necessary when the block ends.
 
     .. wraps::
         bool BeginMenu(
@@ -4984,7 +5148,7 @@ def begin_menu(str label, enabled=True):
 def end_menu():
     """Close menu context.
 
-    Only call this function if the :func:`begin_menu` returns ``True``.
+    Only call this function if ``begin_menu().opened`` returns True.
 
     For practical example how to use this function, please see documentation
     of :func:`begin_main_menu_bar` or :func:`begin_menu_bar`.
@@ -5001,7 +5165,7 @@ def menu_item(
     """Create a menu item.
 
     Item shortcuts are displayed for convenience but not processed by ImGui at
-    the moment. Using ``selected`` arguement it is possible to show and trigger
+    the moment. Using ``selected`` argument it is possible to show and trigger
     a check mark next to the menu item label.
 
     For practical example how to use this function, please see documentation
@@ -5103,6 +5267,18 @@ def open_popup_on_item_click(str label = None, cimgui.ImGuiPopupFlags popup_flag
 
 
 cdef class _BeginEndPopup(object):
+    """
+    Return value of :func:`begin_popup` exposing ``opened`` boolean attribute.
+    See :func:`begin_popup` for an explanation and examples.
+
+    Can be used as a context manager (in a ``with`` statement) to automatically call :func:`end_popup`
+    (if necessary) to end the popup created with :func:`begin_popup` when the block ends,
+    even if an exception is raised.
+
+    This class is not intended to be instantiated by the user (thus the `_` name prefix).
+    It should be obtained as the return value of the :func:`begin_popup` function.
+    """
+
     cdef readonly bool opened
 
     def __cinit__(self, bool opened):
@@ -5116,6 +5292,7 @@ cdef class _BeginEndPopup(object):
             cimgui.EndPopup()
 
     def __bool__(self):
+        """For legacy support, returns ``opened``."""
         return self.opened
 
     def __repr__(self):
@@ -5132,15 +5309,32 @@ cdef class _BeginEndPopup(object):
 def begin_popup(str label, cimgui.ImGuiWindowFlags flags=0):
     """Open a popup window.
 
-    Returns ``True`` if the popup is open and you can start outputting
-    content to it. Only call :func:`end_popup()` if :func:`begin_popup()`
-    returned true.
+    The attribute ``opened`` is True if the popup is open and you can start outputting
+    content to it.
+    Use with ``with`` to automatically call :func:`end_popup` if necessary.
+    Otherwise, only call :func:`end_popup` if ``opened`` is True.
 
     .. visual-example::
         :title: Simple popup window
         :height: 100
         :width: 220
         :auto_layout:
+
+        with imgui.begin("Example: simple popup"):
+            if imgui.button("select"):
+                imgui.open_popup("select-popup")
+
+            imgui.same_line()
+
+            with imgui.begin_popup("select-popup") as select_popup:
+                if select_popup.opened:
+                    imgui.text("Select one")
+                    imgui.separator()
+                    imgui.selectable("One")
+                    imgui.selectable("Two")
+                    imgui.selectable("Three")
+
+    Example::
 
         imgui.begin("Example: simple popup")
 
@@ -5163,7 +5357,9 @@ def begin_popup(str label, cimgui.ImGuiWindowFlags flags=0):
         label (str): label of the modal window.
 
     Returns:
-        opened (bool): True if popup is opened.
+        _BeginEndPopup: Use ``opened`` bool attribute to tell if the popup is opened.
+        Only call :func:`end_popup` if ``opened`` is True.
+        Use with ``with`` to automatically call :func:`end_popup` if necessary when the block ends.
 
     .. wraps::
         bool BeginPopup(
@@ -5178,6 +5374,20 @@ def begin_popup(str label, cimgui.ImGuiWindowFlags flags=0):
 
 
 cdef class _BeginEndPopupModal(object):
+    """
+    Return value of :func:`begin_popup_modal` exposing ``opened`` and ``visible`` boolean attributes.
+    See :func:`begin_popup_modal` for an explanation and examples.
+
+    For legacy support, the attributes can also be accessed by unpacking or indexing into this object.
+
+    Can be used as a context manager (in a ``with`` statement) to automatically call :func:`end_popup`
+    (if necessary) to end the popup created with :func:`begin_popup_modal` when the block ends,
+    even if an exception is raised.
+
+    This class is not intended to be instantiated by the user (thus the `_` name prefix).
+    It should be obtained as the return value of the :func:`begin_popup_modal` function.
+    """
+
     cdef readonly bool opened
     cdef readonly bool visible
 
@@ -5193,9 +5403,11 @@ cdef class _BeginEndPopupModal(object):
             cimgui.EndPopup()
 
     def __getitem__(self, item):
+        """For legacy support, returns ``(opened, visible)[item]``."""
         return (self.opened, self.visible)[item]
 
     def __iter__(self):
+        """For legacy support, returns ``iter((opened, visible))``."""
         return iter((self.opened, self.visible))
 
     def __repr__(self):
@@ -5212,14 +5424,35 @@ cdef class _BeginEndPopupModal(object):
 def begin_popup_modal(str title, visible=None, cimgui.ImGuiWindowFlags flags=0):
     """Begin pouring popup contents.
 
-    Differes from :func:`begin_popup()` with its modality - meaning it
+    Differs from :func:`begin_popup` with its modality - meaning it
     opens up on top of every other window.
+
+    The attribute ``opened`` is True if the popup is open and you can start outputting
+    content to it.
+    Use with ``with`` to automatically call :func:`end_popup` if necessary.
+    Otherwise, only call :func:`end_popup` if ``opened`` is True.
 
     .. visual-example::
         :title: Simple popup window
         :height: 100
         :width: 220
         :auto_layout:
+
+        with imgui.begin("Example: simple popup modal"):
+            if imgui.button("Open Modal popup"):
+                imgui.open_popup("select-popup")
+
+            imgui.same_line()
+
+            with imgui.begin_popup_modal("select-popup") as select_popup:
+                if select_popup.opened:
+                    imgui.text("Select an option:")
+                    imgui.separator()
+                    imgui.selectable("One")
+                    imgui.selectable("Two")
+                    imgui.selectable("Three")
+
+    Example::
 
         imgui.begin("Example: simple popup modal")
 
@@ -5228,7 +5461,7 @@ def begin_popup_modal(str title, visible=None, cimgui.ImGuiWindowFlags flags=0):
 
         imgui.same_line()
 
-        if imgui.begin_popup_modal("select-popup")[0]:
+        if imgui.begin_popup_modal("select-popup").opened:
             imgui.text("Select an option:")
             imgui.separator()
             imgui.selectable("One")
@@ -5245,8 +5478,10 @@ def begin_popup_modal(str title, visible=None, cimgui.ImGuiWindowFlags flags=0):
             :ref:`list of available flags <window-flag-options>`.
 
     Returns:
-        tuple: ``(opened, visible)`` tuple of bools.
-        opened can be ``False`` when the popup is completely clipped
+        _BeginEndPopupModal: ``(opened, visible)`` struct of bools.
+        Only call :func:`end_popup` if ``opened`` is True.
+        Use with ``with`` to automatically call :func:`end_popup` if necessary when the block ends.
+        The ``opened`` attribute can be False when the popup is completely clipped
         (e.g. zero size display).
 
     .. wraps::
@@ -5280,6 +5515,14 @@ def begin_popup_context_item(str label = None, cimgui.ImGuiPopupFlags mouse_butt
         :auto_layout:
         :click: 40 40
 
+        with imgui.begin("Example: popup context view"):
+            imgui.text("Right-click to set value.")
+            with imgui.begin_popup_context_item("Item Context Menu", mouse_button=0) as popup:
+                if popup.opened:
+                    imgui.selectable("Set to Zero")
+
+    Example::
+
         imgui.begin("Example: popup context view")
         imgui.text("Right-click to set value.")
         if imgui.begin_popup_context_item("Item Context Menu", mouse_button=0):
@@ -5292,8 +5535,9 @@ def begin_popup_context_item(str label = None, cimgui.ImGuiPopupFlags mouse_butt
         mouse_button: ImGuiPopupFlags
 
     Returns:
-        opened (bool): opened can be False when the popup is completely
-        clipped (e.g. zero size display).
+        _BeginEndPopup: Use ``opened`` bool attribute to tell if the popup is opened.
+        Only call :func:`end_popup` if ``opened`` is True.
+        Use with ``with`` to automatically call :func:`end_popup` if necessary when the block ends.
 
     .. wraps::
         bool BeginPopupContextItem(
@@ -5314,7 +5558,7 @@ def begin_popup_context_window(
 ):
     """Helper function to open and begin popup when clicked on current window.
 
-    As all popup functions it should end with :func:`end_popup()`.
+    As all popup functions it should end with :func:`end_popup`.
 
     .. visual-example::
         :title: Popup context view
@@ -5322,6 +5566,13 @@ def begin_popup_context_window(
         :width: 200
         :auto_layout:
         :click: 40 40
+
+        with imgui.begin("Example: popup context window"):
+            with imgui.begin_popup_context_window(popup_flags=imgui.POPUP_NONE) as context_window:
+                if context_window.opened:
+                    imgui.selectable("Clear")
+
+    Example::
 
         imgui.begin("Example: popup context window")
         if imgui.begin_popup_context_window(popup_flags=imgui.POPUP_NONE):
@@ -5335,7 +5586,9 @@ def begin_popup_context_window(
         also_over_items (bool): display on top of widget. OBSOLETED in ImGui 1.77 (from June 2020)
 
     Returns:
-        opened (bool): if the context window is opened.
+        _BeginEndPopup: Use ``opened`` bool attribute to tell if the context window is opened.
+        Only call :func:`end_popup` if ``opened`` is True.
+        Use with ``with`` to automatically call :func:`end_popup` if necessary when the block ends.
 
     .. wraps::
         bool BeginPopupContextWindow(
@@ -5369,7 +5622,9 @@ def begin_popup_context_void(str label = None, cimgui.ImGuiPopupFlags popup_flag
         popup_flags: ImGuiPopupFlags
 
     Returns:
-        opened (bool): if the context window is opened.
+        _BeginEndPopup: Use ``opened`` bool attribute to tell if the context window is opened.
+        Only call :func:`end_popup` if ``opened`` is True.
+        Use with ``with`` to automatically call :func:`end_popup` if necessary when the block ends.
 
     .. wraps::
         bool BeginPopupContextVoid(const char* str_id = NULL, ImGuiPopupFlags popup_flags = 1)
@@ -5404,6 +5659,7 @@ def end_popup():
     """End a popup window.
 
     Should be called after each XYZPopupXYZ function.
+    Only call this function if ``begin_popup_XYZ().opened`` is True.
 
     For practical example how to use this function, please see documentation
     of :func:`open_popup`.
@@ -5429,6 +5685,18 @@ def close_current_popup():
 
 
 cdef class _BeginEndTable(object):
+    """
+    Return value of :func:`begin_table` exposing ``opened`` boolean attribute.
+    See :func:`begin_table` for an explanation and examples.
+
+    Can be used as a context manager (in a ``with`` statement) to automatically call :func:`end_table`
+    (if necessary) to end the table created with :func:`begin_table` when the block ends,
+    even if an exception is raised.
+
+    This class is not intended to be instantiated by the user (thus the `_` name prefix).
+    It should be obtained as the return value of the :func:`begin_table` function.
+    """
+
     cdef readonly bool opened
 
     def __cinit__(self, bool opened):
@@ -5442,6 +5710,7 @@ cdef class _BeginEndTable(object):
             cimgui.EndTable()
 
     def __bool__(self):
+        """For legacy support, returns ``opened``."""
         return self.opened
 
     def __repr__(self):
@@ -5465,6 +5734,11 @@ def begin_table(
     ):
     """
 
+    Returns:
+        _BeginEndPopup: Use ``opened`` bool attribute to tell if the table is opened.
+        Only call :func:`end_table` if ``opened`` is True.
+        Use with ``with`` to automatically call :func:`end_table` if necessary when the block ends.
+
     .. wraps::
         bool BeginTable(
             const char* str_id,
@@ -5487,6 +5761,8 @@ def begin_table(
 
 def end_table():
     """
+    End a previously opened table.
+    Only call this function if ``begin_table().opened`` is True.
 
     .. wraps::
         void EndTable()
@@ -10571,6 +10847,18 @@ def get_columns_count():
     return cimgui.GetColumnsCount()
 
 cdef class _BeginEndTabBar(object):
+    """
+    Return value of :func:`begin_tab_bar` exposing ``opened`` boolean attribute.
+    See :func:`begin_tab_bar` for an explanation and examples.
+
+    Can be used as a context manager (in a ``with`` statement) to automatically call :func:`end_tab_bar`
+    (if necessary) to end the tar bar created with :func:`begin_tab_bar` when the block ends,
+    even if an exception is raised.
+
+    This class is not intended to be instantiated by the user (thus the `_` name prefix).
+    It should be obtained as the return value of the :func:`begin_tab_bar` function.
+    """
+
     cdef readonly bool opened
 
     def __cinit__(self, bool opened):
@@ -10584,6 +10872,7 @@ cdef class _BeginEndTabBar(object):
             cimgui.EndTabBar()
 
     def __bool__(self):
+        """For legacy support, returns ``opened``."""
         return self.opened
 
     def __repr__(self):
@@ -10606,7 +10895,9 @@ def begin_tab_bar(str identifier, cimgui.ImGuiTabBarFlags flags = 0):
             :ref:`list of available flags <tabbar-flag-options>`.
 
     Returns:
-        bool: True if the Tab Bar is open
+        _BeginEndTabBar: Use ``opened`` bool attribute to tell if the Tab Bar is open.
+        Only call :func:`end_tab_bar` if ``opened`` is True.
+        Use with ``with`` to automatically call :func:`end_tab_bar` if necessary when the block ends.
 
     .. wraps::
         bool BeginTabBar(const char* str_id, ImGuiTabBarFlags flags = 0)
@@ -10618,7 +10909,8 @@ def begin_tab_bar(str identifier, cimgui.ImGuiTabBarFlags flags = 0):
     )
 
 def end_tab_bar():
-    """Only call end_tab_bar() if begin_tab_bar() returns true!
+    """End a previously opened tab bar.
+    Only call this function if ``begin_tab_bar().opened`` is True.
 
     .. wraps::
         void EndTabBar()
@@ -10626,6 +10918,19 @@ def end_tab_bar():
     cimgui.EndTabBar()
 
 cdef class _BeginEndTabItem(object):
+    """
+    Return value of :func:`begin_tab_item` exposing ``selected`` and ``opened`` boolean attributes.
+    See :func:`begin_tab_item` for an explanation of these attributes and examples.
+
+    For legacy support, the attributes can also be accessed by unpacking or indexing into this object.
+
+    Can be used as a context manager (in a ``with`` statement) to automatically call :func:`end_tab_item`
+    to end the tab item created with :func:`begin_tab_item` when the block ends, even if an exception is raised.
+
+    This class is not intended to be instantiated by the user (thus the `_` name prefix).
+    It should be obtained as the return value of the :func:`begin_tab_item` function.
+    """
+
     cdef readonly bool selected
     cdef readonly bool opened
 
@@ -10641,9 +10946,11 @@ cdef class _BeginEndTabItem(object):
             cimgui.EndTabItem()
 
     def __getitem__(self, item):
+        """For legacy support, returns ``(selected, opened)[item]``."""
         return (self.selected, self.opened)[item]
 
     def __iter__(self):
+        """For legacy support, returns ``iter((selected, opened))``."""
         return iter((self.selected, self.opened))
 
     def __repr__(self):
@@ -10660,18 +10967,6 @@ cdef class _BeginEndTabItem(object):
 def begin_tab_item(str label, opened = None, cimgui.ImGuiTabItemFlags flags = 0):
     """Create a Tab.
 
-    Args:
-        label (str): Label of the tab item
-        removable (bool): If True, the tab item can be removed
-        flags: ImGuiTabItemFlags flags. See:
-            :ref:`list of available flags <tabitem-flag-options>`.
-
-    Returns:
-        tuple: ``(slected, opened)`` tuple of bools. If tab item is selected
-        ``selected==True``. The value of ``opened`` is always True for
-        non-removable and open tab items but changes state to False on close
-        button click for removable tab items.
-
     .. visual-example::
         :auto_layout:
         :width: 300
@@ -10680,14 +10975,36 @@ def begin_tab_item(str label, opened = None, cimgui.ImGuiTabItemFlags flags = 0)
 
         #...
 
+        with imgui.begin("Example Tab Bar"):
+            with imgui.begin_tab_bar("MyTabBar") as tab_bar:
+                if tab_bar.opened:
+                    with imgui.begin_tab_item("Item 1") as item1:
+                        if item1.selected:
+                            imgui.text("Here is the tab content!")
+
+                    with imgui.begin_tab_item("Item 2") as item2:
+                        if item2.selected:
+                            imgui.text("Another content...")
+
+                    with imgui.begin_tab_item("Item 3", opened=opened_state) as item3:
+                        opened_state = item3.opened
+                        if item3.selected:
+                            imgui.text("Hello Saylor!")
+
+    Example::
+
+        opened_state = True
+
+        #...
+
         imgui.begin("Example Tab Bar")
         if imgui.begin_tab_bar("MyTabBar"):
 
-            if imgui.begin_tab_item("Item 1")[0]:
+            if imgui.begin_tab_item("Item 1").selected:
                 imgui.text("Here is the tab content!")
                 imgui.end_tab_item()
 
-            if imgui.begin_tab_item("Item 2")[0]:
+            if imgui.begin_tab_item("Item 2").selected:
                 imgui.text("Another content...")
                 imgui.end_tab_item()
 
@@ -10698,6 +11015,20 @@ def begin_tab_item(str label, opened = None, cimgui.ImGuiTabItemFlags flags = 0)
 
             imgui.end_tab_bar()
         imgui.end()
+
+    Args:
+        label (str): Label of the tab item
+        removable (bool): If True, the tab item can be removed
+        flags: ImGuiTabItemFlags flags. See:
+            :ref:`list of available flags <tabitem-flag-options>`.
+
+    Returns:
+        _BeginEndTabItem: ``(selected, opened)`` struct of bools. If tab item is selected
+        ``selected==True``. The value of ``opened`` is always True for
+        non-removable and open tab items but changes state to False on close
+        button click for removable tab items.
+        Only call :func:`end_tab_item` if ``selected`` is True.
+        Use with ``with`` to automatically call :func:`end_tab_item` if necessary when the block ends.
 
     .. wraps::
         bool BeginTabItem(
@@ -10717,7 +11048,8 @@ def begin_tab_item(str label, opened = None, cimgui.ImGuiTabItemFlags flags = 0)
     )
 
 def end_tab_item():
-    """Only call end_tab_item() if begin_tab_item() returns true!
+    """End a previously opened tab item.
+    Only call this function if ``begin_tab_item().selected`` is True.
 
     .. wraps::
         void EndTabItem()
@@ -10810,6 +11142,18 @@ def dockspace(cimgui.ImGuiID id, tuple size=(0, 0), cimgui.ImGuiDockNodeFlags fl
     return cimgui.DockSpace(id, _cast_tuple_ImVec2(size), flags, NULL)
 
 cdef class _BeginEndDragDropSource(object):
+    """
+    Return value of :func:`begin_drag_drop_source` exposing ``dragging`` boolean attribute.
+    See :func:`begin_drag_drop_source` for an explanation and examples.
+
+    Can be used as a context manager (in a ``with`` statement) to automatically call :func:`end_drag_drop_source`
+    (if necessary) to end the drag-drop source created with :func:`begin_drag_drop_source` when the block ends,
+    even if an exception is raised.
+
+    This class is not intended to be instantiated by the user (thus the `_` name prefix).
+    It should be obtained as the return value of the :func:`begin_drag_drop_source` function.
+    """
+
     cdef readonly bool dragging
 
     def __cinit__(self, bool dragging):
@@ -10823,6 +11167,7 @@ cdef class _BeginEndDragDropSource(object):
             cimgui.EndDragDropSource()
 
     def __bool__(self):
+        """For legacy support, returns ``dragging``."""
         return self.dragging
 
     def __repr__(self):
@@ -10836,20 +11181,32 @@ cdef class _BeginEndDragDropSource(object):
         return self.dragging is other
 
 def begin_drag_drop_source(cimgui.ImGuiDragDropFlags flags=0):
-    """Set the current item as a drag and drop source. If this return True, you
+    """Set the current item as a drag and drop source. If ``dragging`` is True, you
     can call :func:`set_drag_drop_payload` and :func:`end_drag_drop_source`.
+    Use with ``with`` to automatically call :func:`end_drag_drop_source` if necessary.
 
     **Note:** this is a beta API.
-
-    Args:
-        flags (ImGuiDragDropFlags): DragDrop flags.
-
-    Returns:
-        bool: True while a drag starting at this source is occurring
 
     .. visual-example::
         :auto_layout:
         :width: 300
+
+        with imgui.begin("Example: drag and drop"):
+
+            imgui.button('source')
+            with imgui.begin_drag_drop_source() as drag_drop_src:
+                if drag_drop_src.dragging:
+                    imgui.set_drag_drop_payload('itemtype', b'payload')
+                    imgui.button('dragged source')
+
+            imgui.button('dest')
+            with imgui.begin_drag_drop_target() as drag_drop_dst:
+                if drag_drop_dst.hovered:
+                    payload = imgui.accept_drag_drop_payload('itemtype')
+                    if payload is not None:
+                        print('Received:', payload)
+
+    Example::
 
         imgui.begin("Example: drag and drop")
 
@@ -10867,6 +11224,14 @@ def begin_drag_drop_source(cimgui.ImGuiDragDropFlags flags=0):
             imgui.end_drag_drop_target()
 
         imgui.end()
+
+    Args:
+        flags (ImGuiDragDropFlags): DragDrop flags.
+
+    Returns:
+        _BeginEndDragDropSource: Use ``dragging`` to tell if a drag starting at this source is occurring.
+        Only call :func:`end_drag_drop_source` if ``dragging`` is True.
+        Use with ``with`` to automatically call :func:`end_drag_drop_source` if necessary when the block ends.
 
     .. wraps::
         bool BeginDragDropSource(ImGuiDragDropFlags flags = 0)
@@ -10898,8 +11263,8 @@ def set_drag_drop_payload(str type, bytes data, cimgui.ImGuiCond condition=0):
 
 
 def end_drag_drop_source():
-    """End the drag and drop source. Only call after :func:`begin_drag_drop_source`
-    returns True.
+    """End the drag and drop source.
+    Only call if ``begin_drag_drop_source().dragging`` is True.
 
     **Note:** this is a beta API.
 
@@ -10912,6 +11277,18 @@ def end_drag_drop_source():
 
 
 cdef class _BeginEndDragDropTarget(object):
+    """
+    Return value of :func:`begin_drag_drop_target` exposing ``hovered`` boolean attribute.
+    See :func:`begin_drag_drop_target` for an explanation and examples.
+
+    Can be used as a context manager (in a ``with`` statement) to automatically call :func:`end_drag_drop_target`
+    (if necessary) to end the drag-drop target created with :func:`begin_drag_drop_target` when the block ends,
+    even if an exception is raised.
+
+    This class is not intended to be instantiated by the user (thus the `_` name prefix).
+    It should be obtained as the return value of the :func:`begin_drag_drop_target` function.
+    """
+
     cdef readonly bool hovered
 
     def __cinit__(self, bool hovered):
@@ -10925,6 +11302,7 @@ cdef class _BeginEndDragDropTarget(object):
             cimgui.EndDragDropTarget()
 
     def __bool__(self):
+        """For legacy support, returns ``hovered``."""
         return self.hovered
 
     def __repr__(self):
@@ -10939,15 +11317,18 @@ cdef class _BeginEndDragDropTarget(object):
 
 
 def begin_drag_drop_target():
-    """Set the current item as a drag and drop target. If this return True, you
+    """Set the current item as a drag and drop target. If ``hovered`` is True, you
     can call :func:`accept_drag_drop_payload` and :func:`end_drag_drop_target`.
+    Use with ``with`` to automatically call :func:`end_drag_drop_target` if necessary.
+
+    For a complete example see :func:`begin_drag_drop_source`.
 
     **Note:** this is a beta API.
 
     Returns:
-        bool: True when a drag hovers over the target
-
-    For a complete example see :func:`begin_drag_drop_source`.
+        _BeginEndDragDropTarget: Use ``hovered` to tell if a drag hovers over the target.
+        Only call :func:`end_drag_drop_target` if ``hovered`` is True.
+        Use with ``with`` to automatically call :func:`end_drag_drop_target` if necessary when the block ends.
 
     .. wraps::
         bool BeginDragDropTarget()
@@ -10984,8 +11365,8 @@ def accept_drag_drop_payload(str type, cimgui.ImGuiDragDropFlags flags=0):
 
 
 def end_drag_drop_target():
-    """End the drag and drop source. Only call after :func:`begin_drag_drop_target`
-    returns True.
+    """End the drag and drop source.
+    Only call this function if ``begin_drag_drop_target().hovered`` is True.
 
     **Note:** this is a beta API.
 
@@ -11073,6 +11454,18 @@ def pop_clip_rect():
 
 
 cdef class _BeginEndGroup(object):
+    """
+    Return value of :func:`begin_group`.
+    See :func:`begin_group` for an explanation and examples.
+
+    Can be used as a context manager (in a ``with`` statement) to automatically call :func:`end_group`
+    to end the group created with :func:`begin_group` when the block ends,
+    even if an exception is raised.
+
+    This class is not intended to be instantiated by the user (thus the `_` name prefix).
+    It should be obtained as the return value of the :func:`begin_group` function.
+    """
+
     def __enter__(self):
         return self
 
@@ -11096,6 +11489,22 @@ def begin_group():
         :auto_layout:
         :width: 500
 
+        with imgui.begin("Example: item groups"):
+
+            with imgui.begin_group():
+                imgui.text("First group (buttons):")
+                imgui.button("Button A")
+                imgui.button("Button B")
+
+            imgui.same_line(spacing=50)
+
+            with imgui.begin_group():
+                imgui.text("Second group (text and bullet texts):")
+                imgui.bullet_text("Bullet A")
+                imgui.bullet_text("Bullet B")
+
+    Example::
+
         imgui.begin("Example: item groups")
 
         imgui.begin_group()
@@ -11113,6 +11522,9 @@ def begin_group():
         imgui.end_group()
 
         imgui.end()
+
+    Returns:
+        _BeginEndGrouop; use with ``with`` to automatically call :func:`end_group` when the block ends.
 
     .. wraps::
         void BeginGroup()
